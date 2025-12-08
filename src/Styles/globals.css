@@ -1,17 +1,6 @@
-@import "tailwindcss";
-
-@theme {
-  --color-mosaic-sage: #9ED5B8;
-  --color-mosaic-blue: #7EC8E3;
-  --color-mosaic-lavender: #B8A4DC;
-  --color-mosaic-peach: #FFB4A2;
-  --color-mosaic-mint: #A8E6CF;
-  --color-mosaic-coral: #FF8B94;
-  
-  --color-priority-normal: #6BCF7F;
-  --color-priority-medium: #FFD93D;
-  --color-priority-urgent: #FF8B94;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   body {
@@ -47,7 +36,7 @@
   }
 
   .sidebar-blob-active {
-    @apply ring-3 scale-105 shadow-md;
+    @apply ring-2 scale-105 shadow-md;
   }
 
   /* Priority star styles - smaller */
