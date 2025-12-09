@@ -8,7 +8,7 @@ export default function TodoList() {
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: '1',
-      title: 'Contact the Teacher to submit the report',
+      title: 'Contact the Teacher about the report',
       description: '',
       priority: 'URGENT',
       completed: false,
@@ -19,7 +19,7 @@ export default function TodoList() {
     },
     {
       id: '2',
-      title: 'Eat Food',
+      title: 'Call Dad',
       description: '',
       priority: 'MEDIUM',
       completed: false,
@@ -30,7 +30,7 @@ export default function TodoList() {
     {
       id: '3',
       title: 'Buy gift to Grandma on bday',
-      description: 'Birthday is on December 8th!',
+      description: 'Birthday is on August 19th!',
       priority: 'URGENT',
       completed: false,
       dueDate: new Date('2024-12-08'),
@@ -161,7 +161,7 @@ export default function TodoList() {
 
       {isListening && (
         <div className="text-xs text-center py-2 px-3 rounded-lg bg-blue-100/70 text-blue-700 animate-pulse">
-          🎤 Listening... Click mic to stop
+          🎤 Listening...
         </div>
       )}
 

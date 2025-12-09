@@ -16,6 +16,7 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
   const [error, setError] = useState<string | null>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const isStartingRef = useRef(false)
+  const hasResultRef = useRef(false)
 
   const supported = typeof window !== 'undefined' && 
     ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
@@ -26,83 +27,100 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
       return
     }
 
+    console.log('🎙️ Initializing speech recognition...')
+
     if (recognitionRef.current) {
       return
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    const recognitionInstance = new SpeechRecognition()
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      const recognitionInstance = new SpeechRecognition()
 
-    recognitionInstance.continuous = false // Auto-stop after speech
-    recognitionInstance.interimResults = true
-    recognitionInstance.lang = 'en-US'
-    recognitionInstance.maxAlternatives = 1
+      recognitionInstance.continuous = true
+      recognitionInstance.interimResults = true
+      recognitionInstance.lang = 'en-US'
+      recognitionInstance.maxAlternatives = 1
 
-    recognitionInstance.onstart = () => {
-      console.log('🎤 Started')
-      isStartingRef.current = false
-      setIsListening(true)
-      setTranscript('')
-      setError(null)
-    }
+      recognitionInstance.onstart = () => {
+        console.log('🎤 Started listening')
+        isStartingRef.current = false
+        hasResultRef.current = false
+        setIsListening(true)
+        setTranscript('')
+        setError(null)
+      }
 
-    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
-      console.log('📥 Got result!')
-      
-      let currentTranscript = ''
-      
-      for (let i = 0; i < event.results.length; i++) {
-        const result = event.results[i]
-        currentTranscript += result[0].transcript
+      recognitionInstance.onresult = (event: any) => {
+        console.log('📥 Got result!')
+        hasResultRef.current = true
         
-        if (result.isFinal) {
-          console.log('✅ Final:', result[0].transcript)
+        let currentTranscript = ''
+        
+        for (let i = 0; i < event.results.length; i++) {
+          const result = event.results[i]
+          currentTranscript += result[0].transcript
+          
+          if (result.isFinal) {
+            console.log('✅ Final:', result[0].transcript)
+          }
+        }
+
+        if (currentTranscript) {
+          const trimmed = currentTranscript.trim()
+          setTranscript(trimmed)
+          console.log('📝 Transcript:', trimmed)
+          setError(null)
         }
       }
 
-      if (currentTranscript) {
-        setTranscript(currentTranscript.trim())
-        console.log('📝 Transcript:', currentTranscript.trim())
+      recognitionInstance.onerror = (event: any) => {
+        console.error('❌ Error:', event.error)
+        isStartingRef.current = false
+        
+        if (hasResultRef.current && (event.error === 'network' || event.error === 'aborted')) {
+          console.log('⚠️ Ignoring error after results')
+          return
+        }
+        
+        if (event.error === 'aborted') {
+          return
+        }
+        
+        if (event.error === 'no-speech') {
+          setError('No speech detected')
+        } else if (event.error === 'network') {
+          setError('Connection issue')
+        } else if (event.error === 'not-allowed') {
+          setError('Microphone access denied')
+        } else {
+          setError(`Error: ${event.error}`)
+        }
+        
+        setIsListening(false)
       }
-    }
 
-    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('❌ Error:', event.error)
-      isStartingRef.current = false
-      
-      if (event.error === 'aborted') {
-        console.log('⚠️ Aborted')
-        return
+      recognitionInstance.onend = () => {
+        console.log('🛑 Ended')
+        isStartingRef.current = false
+        setIsListening(false)
       }
-      
-      if (event.error === 'no-speech') {
-        setError('No speech detected - try speaking louder')
-      } else if (event.error === 'network') {
-        setError('Network issue - but might still work')
-      } else if (event.error === 'not-allowed') {
-        setError('Microphone access denied')
-      } else {
-        setError(event.error)
+
+      recognitionInstance.onspeechstart = () => {
+        console.log('🗣️ Speech!')
+        hasResultRef.current = true
+        setError(null)
       }
-      
-      setIsListening(false)
-    }
 
-    recognitionInstance.onend = () => {
-      console.log('🛑 Ended')
-      isStartingRef.current = false
-      setIsListening(false)
-    }
+      recognitionRef.current = recognitionInstance
+      console.log('✅ Speech recognition ready')
 
-    recognitionInstance.onspeechstart = () => {
-      console.log('🗣️ SPEECH!')
-      setError(null)
+    } catch (err) {
+      console.error('❌ Failed to initialize:', err)
+      setError('Failed to initialize')
     }
-
-    recognitionRef.current = recognitionInstance
 
     return () => {
-      console.log('🧹 Cleanup')
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort()
@@ -118,60 +136,55 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
     console.log('▶️ START')
     
     if (!recognitionRef.current) {
-      console.error('❌ No recognition!')
+      console.error('❌ No recognition')
       return
     }
 
     if (isListening || isStartingRef.current) {
-      console.warn('⚠️ Already listening')
       return
     }
 
     isStartingRef.current = true
+    hasResultRef.current = false
     
     setTimeout(() => {
-      if (!recognitionRef.current) return
+      if (!recognitionRef.current) {
+        isStartingRef.current = false
+        return
+      }
       
       try {
         setTranscript('')
         setError(null)
         recognitionRef.current.start()
-        console.log('🚀 Started')
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Start failed:', error)
         isStartingRef.current = false
         setIsListening(false)
-        setError('Failed to start')
+        setError(`Failed: ${error.message}`)
       }
-    }, 100)
+    }, 200)
   }, [isListening])
 
   const stopListening = useCallback(() => {
     console.log('⏹️ STOP')
     
-    if (!recognitionRef.current) {
-      console.error('❌ No recognition!')
-      return
-    }
-
-    if (!isListening) {
-      console.warn('⚠️ Not listening')
+    if (!recognitionRef.current || !isListening) {
       return
     }
 
     try {
       recognitionRef.current.stop()
-      console.log('⏸️ Stopping...')
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Stop failed:', error)
       setIsListening(false)
     }
   }, [isListening])
 
   const resetTranscript = useCallback(() => {
-    console.log('🔄 Reset')
     setTranscript('')
     setError(null)
+    hasResultRef.current = false
   }, [])
 
   return {
@@ -188,62 +201,8 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
 // Type definitions
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
-  }
-
-  interface SpeechRecognition extends EventTarget {
-    continuous: boolean
-    interimResults: boolean
-    lang: string
-    maxAlternatives: number
-    start(): void
-    stop(): void
-    abort(): void
-    onaudiostart: ((this: SpeechRecognition, ev: Event) => any) | null
-    onaudioend: ((this: SpeechRecognition, ev: Event) => any) | null
-    onend: ((this: SpeechRecognition, ev: Event) => any) | null
-    onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null
-    onnomatch: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null
-    onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null
-    onsoundstart: ((this: SpeechRecognition, ev: Event) => any) | null
-    onsoundend: ((this: SpeechRecognition, ev: Event) => any) | null
-    onspeechstart: ((this: SpeechRecognition, ev: Event) => any) | null
-    onspeechend: ((this: SpeechRecognition, ev: Event) => any) | null
-    onstart: ((this: SpeechRecognition, ev: Event) => any) | null
-  }
-
-  var SpeechRecognition: {
-    prototype: SpeechRecognition
-    new(): SpeechRecognition
-  }
-
-  interface SpeechRecognitionErrorEvent extends Event {
-    error: string
-    message: string
-  }
-
-  interface SpeechRecognitionEvent extends Event {
-    resultIndex: number
-    results: SpeechRecognitionResultList
-  }
-
-  interface SpeechRecognitionResultList {
-    length: number
-    item(index: number): SpeechRecognitionResult
-    [index: number]: SpeechRecognitionResult
-  }
-
-  interface SpeechRecognitionResult {
-    isFinal: boolean
-    length: number
-    item(index: number): SpeechRecognitionAlternative
-    [index: number]: SpeechRecognitionAlternative
-  }
-
-  interface SpeechRecognitionAlternative {
-    transcript: string
-    confidence: number
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
   }
 }
 
