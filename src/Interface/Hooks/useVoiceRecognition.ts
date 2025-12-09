@@ -8,12 +8,14 @@ interface VoiceRecognitionHook {
   supported: boolean
   resetTranscript: () => void
   error: string | null
+  speechDetected: boolean
 }
 
 export function useVoiceRecognition(): VoiceRecognitionHook {
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [speechDetected, setSpeechDetected] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const isStartingRef = useRef(false)
   const hasResultRef = useRef(false)
@@ -37,8 +39,9 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       const recognitionInstance = new SpeechRecognition()
 
-      recognitionInstance.continuous = true
-      recognitionInstance.interimResults = true
+      // Optimize for faster response
+      recognitionInstance.continuous = true // Keep listening
+      recognitionInstance.interimResults = true // Get partial results ASAP
       recognitionInstance.lang = 'en-US'
       recognitionInstance.maxAlternatives = 1
 
@@ -46,31 +49,39 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
         console.log('🎤 Started listening')
         isStartingRef.current = false
         hasResultRef.current = false
+        setSpeechDetected(false)
         setIsListening(true)
         setTranscript('')
         setError(null)
       }
 
       recognitionInstance.onresult = (event: any) => {
-        console.log('📥 Got result!')
+        console.log('📥 Got result! Results length:', event.results.length)
         hasResultRef.current = true
         
         let currentTranscript = ''
+        let hasFinal = false
         
         for (let i = 0; i < event.results.length; i++) {
           const result = event.results[i]
-          currentTranscript += result[0].transcript
+          const text = result[0].transcript
+          currentTranscript += text
+          
+          console.log(`  Result ${i}: "${text}" (isFinal: ${result.isFinal}, confidence: ${result[0].confidence})`)
           
           if (result.isFinal) {
-            console.log('✅ Final:', result[0].transcript)
+            console.log('✅ Final:', text)
+            hasFinal = true
           }
         }
 
         if (currentTranscript) {
           const trimmed = currentTranscript.trim()
           setTranscript(trimmed)
-          console.log('📝 Transcript:', trimmed)
+          console.log(`📝 Transcript updated to: "${trimmed}" (${hasFinal ? 'FINAL' : 'interim'})`)
           setError(null)
+        } else {
+          console.log('⚠️ Empty transcript')
         }
       }
 
@@ -88,7 +99,9 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
         }
         
         if (event.error === 'no-speech') {
-          setError('No speech detected')
+          // Don't show error immediately - user might just be slow to start speaking
+          console.log('⚠️ No speech detected - try speaking immediately after clicking')
+          setError('Speak immediately after clicking mic')
         } else if (event.error === 'network') {
           setError('Connection issue')
         } else if (event.error === 'not-allowed') {
@@ -107,9 +120,30 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
       }
 
       recognitionInstance.onspeechstart = () => {
-        console.log('🗣️ Speech!')
+        console.log('🗣️ Speech detected by browser!')
         hasResultRef.current = true
+        setSpeechDetected(true)
         setError(null)
+      }
+
+      recognitionInstance.onspeechend = () => {
+        console.log('🔇 Speech ended')
+      }
+
+      recognitionInstance.onaudiostart = () => {
+        console.log('🎵 Audio input started (mic is working)')
+      }
+
+      recognitionInstance.onaudioend = () => {
+        console.log('🎵 Audio input ended')
+      }
+
+      recognitionInstance.onsoundstart = () => {
+        console.log('🔊 Sound detected!')
+      }
+
+      recognitionInstance.onsoundend = () => {
+        console.log('🔕 Sound ended')
       }
 
       recognitionRef.current = recognitionInstance
@@ -147,6 +181,7 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
     isStartingRef.current = true
     hasResultRef.current = false
     
+    // Wait 1000ms before starting - gives user time to prepare
     setTimeout(() => {
       if (!recognitionRef.current) {
         isStartingRef.current = false
@@ -163,7 +198,7 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
         setIsListening(false)
         setError(`Failed: ${error.message}`)
       }
-    }, 200)
+    }, 1000) // A second delay
   }, [isListening])
 
   const stopListening = useCallback(() => {
@@ -195,6 +230,7 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
     supported,
     resetTranscript,
     error,
+    speechDetected,
   }
 }
 

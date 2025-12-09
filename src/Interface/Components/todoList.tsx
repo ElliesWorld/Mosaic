@@ -43,8 +43,9 @@ export default function TodoList() {
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const { isListening, transcript, startListening, stopListening, supported, resetTranscript, error } = useVoiceRecognition()
   const wasListeningRef = useRef(false)
-
-  console.log('🎨 TodoList render:', { isListening, transcript, supported })
+  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [showListening, setShowListening] = useState(false)
+  const listeningDelayRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleAddTask = useCallback((title?: string) => {
     const taskTitle = title || newTaskTitle
@@ -64,6 +65,59 @@ export default function TodoList() {
     setTasks(prev => [...prev, newTask])
     setNewTaskTitle('')
   }, [newTaskTitle])
+
+  // Delay showing "Listening..." message by 150ms
+  useEffect(() => {
+    if (isListening) {
+      // Clear any existing delay
+      if (listeningDelayRef.current) {
+        clearTimeout(listeningDelayRef.current)
+      }
+      
+      // Show "Listening..." after 150ms delay
+      listeningDelayRef.current = setTimeout(() => {
+        setShowListening(true)
+      }, 150)
+    } else {
+      // Hide immediately when stopped
+      if (listeningDelayRef.current) {
+        clearTimeout(listeningDelayRef.current)
+      }
+      setShowListening(false)
+    }
+
+    return () => {
+      if (listeningDelayRef.current) {
+        clearTimeout(listeningDelayRef.current)
+      }
+    }
+  }, [isListening])
+
+  // Auto-stop after getting transcript (with delay for final result)
+  useEffect(() => {
+    if (isListening && transcript) {
+      console.log('📝 Got transcript, will auto-stop in 0.5 seconds...')
+      
+      // Clear existing timeout
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current)
+      }
+      
+      // Auto-stop after 0.5 seconds of no new speech
+      autoStopTimeoutRef.current = setTimeout(() => {
+        if (isListening) {
+          console.log('⏹️ Auto-stopping...')
+          stopListening()
+        }
+      }, 500)
+    }
+    
+    return () => {
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current)
+      }
+    }
+  }, [transcript, isListening, stopListening])
 
   // Process transcript when listening stops
   useEffect(() => {
@@ -86,7 +140,6 @@ export default function TodoList() {
         console.log('✅ Adding task:', text)
         handleAddTask(text)
         
-        // Reset after a moment
         setTimeout(() => resetTranscript(), 1000)
       }
     }
@@ -104,15 +157,6 @@ export default function TodoList() {
     setTasks(tasks.filter(task => task.id !== id))
   }
 
-  const handleMicClick = () => {
-    console.log('👆 Mic clicked! isListening:', isListening)
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div>
@@ -125,20 +169,21 @@ export default function TodoList() {
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-          placeholder={isListening ? "Listening..." : "Add a new task..."}
+          placeholder={showListening ? "Listening..." : "Add a new task..."}
           className="flex-1 px-3 py-2 text-sm rounded-xl border border-blue-200/50 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF]/50 bg-white/70 backdrop-blur-sm"
           disabled={isListening}
         />
         
         {supported ? (
           <button
-            onClick={handleMicClick}
+            onClick={startListening}
+            disabled={isListening}
             className={`p-2 rounded-xl transition-all flex items-center justify-center ${
               isListening 
-                ? 'bg-red-400 animate-pulse' 
+                ? 'bg-red-400 animate-pulse cursor-not-allowed' 
                 : 'bg-blue-400 hover:bg-blue-500'
             }`}
-            title={isListening ? 'Stop recording' : 'Start voice input'}
+            title={isListening ? 'Recording...' : 'Start voice input'}
           >
             {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
           </button>
@@ -159,7 +204,7 @@ export default function TodoList() {
         </button>
       </div>
 
-      {isListening && (
+      {showListening && (
         <div className="text-xs text-center py-2 px-3 rounded-lg bg-blue-100/70 text-blue-700 animate-pulse">
           🎤 Listening...
         </div>
