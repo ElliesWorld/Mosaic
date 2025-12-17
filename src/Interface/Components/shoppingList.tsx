@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Plus, Mic, MicOff, Trash2, Check } from 'lucide-react'
 import { useVoiceRecognition } from '../Hooks/useVoiceRecognition'
 
@@ -6,41 +6,41 @@ interface ShoppingItem {
   id: string
   name: string
   quantity?: string
-  category?: 'Frukt & Grönt' | 'Mejeri' | 'Kött & Fisk' | 'Bröd & Bakverk' | 'Övrigt'
+  category?: 'Fruits & Vegetables' | 'Dairy' | 'Meat & Fish' | 'Bread & Bakery' | 'Other'
   checked: boolean
   createdAt: Date
 }
 
 const categoryColors = {
-  'Frukt & Grönt': '#A8E6CF',
-  'Mejeri': '#FFD93D',
-  'Kött & Fisk': '#FF6B9D',
-  'Bröd & Bakverk': '#FFB347',
-  'Övrigt': '#7EC8E3',
+  'Fruits & Vegetables': '#A8E6CF',
+  'Dairy': '#FFD93D',
+  'Meat & Fish': '#FF6B9D',
+  'Bread & Bakery': '#FFB347',
+  'Other': '#7EC8E3',
 }
 
 export default function ShoppingList() {
   const [items, setItems] = useState<ShoppingItem[]>([
     {
       id: '1',
-      name: 'Mjölk',
+      name: 'Milk',
       quantity: '1 liter',
-      category: 'Mejeri',
+      category: 'Dairy',
       checked: false,
       createdAt: new Date(),
     },
     {
       id: '2',
-      name: 'Äpplen',
+      name: 'Apples',
       quantity: '1 kg',
-      category: 'Frukt & Grönt',
+      category: 'Fruits & Vegetables',
       checked: false,
       createdAt: new Date(),
     },
     {
       id: '3',
-      name: 'Bröd',
-      category: 'Bröd & Bakverk',
+      name: 'Bread',
+      category: 'Bread & Bakery',
       checked: false,
       createdAt: new Date(),
     },
@@ -49,32 +49,33 @@ export default function ShoppingList() {
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const { isListening, transcript, startListening, stopListening, supported, resetTranscript, error } = useVoiceRecognition()
-  const [showChecked, setShowChecked] = useState(true)
+  const wasListeningRef = useRef(false)
+  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const autoDetectCategory = (itemName: string): ShoppingItem['category'] => {
     const name = itemName.toLowerCase()
     
-    // Frukt & Grönt
-    if (name.match(/äpple|banan|tomat|gurka|sallad|morot|potatis|lök|citron|apelsin|päron|frukt|grönsak/i)) {
-      return 'Frukt & Grönt'
+    // Fruits & Vegetables
+    if (name.match(/apple|banana|tomato|cucumber|lettuce|salad|carrot|potato|onion|lemon|orange|pear|fruit|vegetable|broccoli|pepper|spinach/i)) {
+      return 'Fruits & Vegetables'
     }
     
-    // Mejeri
-    if (name.match(/mjölk|ost|yoghurt|smör|grädde|fil|kesella/i)) {
-      return 'Mejeri'
+    // Dairy
+    if (name.match(/milk|cheese|yogurt|butter|cream|dairy|egg|eggs/i)) {
+      return 'Dairy'
     }
     
-    // Kött & Fisk
-    if (name.match(/kött|fisk|kyckling|köttfärs|bacon|korv|lax|räkor/i)) {
-      return 'Kött & Fisk'
+    // Meat & Fish
+    if (name.match(/meat|fish|chicken|beef|pork|bacon|sausage|salmon|shrimp|turkey|lamb/i)) {
+      return 'Meat & Fish'
     }
     
-    // Bröd & Bakverk
-    if (name.match(/bröd|bulle|kaka|mjöl|jäst|bakpulver/i)) {
-      return 'Bröd & Bakverk'
+    // Bread & Bakery
+    if (name.match(/bread|bun|cake|flour|yeast|baking|cookie|muffin|bagel|croissant/i)) {
+      return 'Bread & Bakery'
     }
     
-    return 'Övrigt'
+    return 'Other'
   }
 
   const handleAddItem = useCallback((name?: string, quantity?: string) => {
@@ -95,6 +96,59 @@ export default function ShoppingList() {
     setNewItemName('')
     setNewItemQuantity('')
   }, [newItemName, newItemQuantity])
+
+  // Auto-stop after getting transcript
+  useEffect(() => {
+    if (isListening && transcript) {
+      console.log('📝 Got transcript, will auto-stop in 0.8 seconds...')
+      
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current)
+      }
+      
+      autoStopTimeoutRef.current = setTimeout(() => {
+        if (isListening) {
+          console.log('⏹️ Auto-stopping...')
+          stopListening()
+        }
+      }, 800)
+    }
+    
+    return () => {
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current)
+      }
+    }
+  }, [transcript, isListening, stopListening])
+
+  // Process transcript when listening stops
+  useEffect(() => {
+    if (wasListeningRef.current && !isListening && transcript) {
+      console.log('🎯 Processing transcript:', transcript)
+      
+      let text = transcript.trim()
+      
+      // Remove trigger words like "add"
+      const triggers = ['add item', 'add', 'buy']
+      for (const trigger of triggers) {
+        if (text.toLowerCase().startsWith(trigger)) {
+          text = text.substring(trigger.length).trim()
+          break
+        }
+      }
+      
+      if (text) {
+        // Capitalize first letter
+        text = text.charAt(0).toUpperCase() + text.slice(1)
+        console.log('✅ Adding item:', text)
+        handleAddItem(text)
+        
+        setTimeout(() => resetTranscript(), 1000)
+      }
+    }
+    
+    wasListeningRef.current = isListening
+  }, [isListening, transcript, handleAddItem, resetTranscript])
 
   const handleToggleCheck = (id: string) => {
     setItems(items.map(item => 
@@ -127,10 +181,10 @@ export default function ShoppingList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold" style={{ color: '#FFB347' }}>
-          Inköpslista
+          Shopping List
         </h2>
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-600">{uncheckedCount} kvar</span>
+          <span className="text-gray-600">{uncheckedCount} left</span>
           {checkedCount > 0 && (
             <>
               <span className="text-gray-400">•</span>
@@ -138,7 +192,7 @@ export default function ShoppingList() {
                 onClick={handleClearChecked}
                 className="text-gray-500 hover:text-red-500 transition-colors"
               >
-                Rensa {checkedCount} avklarade
+                Clear {checkedCount} checked
               </button>
             </>
           )}
@@ -153,7 +207,7 @@ export default function ShoppingList() {
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
-            placeholder={isListening ? "Lyssnar..." : "Lägg till vara..."}
+            placeholder={isListening ? "Listening..." : "Add item..."}
             className="flex-1 px-3 py-2 text-sm rounded-xl border border-orange-200/50 focus:outline-none focus:ring-2 focus:ring-[#FFB347]/50 bg-white/70 backdrop-blur-sm"
             disabled={isListening}
           />
@@ -167,7 +221,7 @@ export default function ShoppingList() {
                   ? 'bg-red-400 animate-pulse cursor-not-allowed' 
                   : 'bg-orange-400 hover:bg-orange-500'
               }`}
-              title={isListening ? 'Spelar in...' : 'Röstinmatning'}
+              title={isListening ? 'Recording...' : 'Voice input'}
             >
               {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
             </button>
@@ -180,7 +234,7 @@ export default function ShoppingList() {
             disabled={isListening}
           >
             <Plus className="w-4 h-4" />
-            Lägg till
+            Add
           </button>
         </div>
 
@@ -189,7 +243,7 @@ export default function ShoppingList() {
           value={newItemQuantity}
           onChange={(e) => setNewItemQuantity(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
-          placeholder="Antal/Mängd (valfritt)"
+          placeholder="Quantity (optional)"
           className="w-full px-3 py-2 text-sm rounded-xl border border-orange-200/50 focus:outline-none focus:ring-2 focus:ring-[#FFB347]/50 bg-white/70 backdrop-blur-sm"
           disabled={isListening}
         />
@@ -198,7 +252,7 @@ export default function ShoppingList() {
       {/* Voice feedback */}
       {isListening && (
         <div className="text-xs text-center py-2 px-3 rounded-lg bg-orange-100/70 text-orange-700 animate-pulse">
-          🎤 Lyssnar...
+          🎤 Listening...
         </div>
       )}
 
@@ -214,28 +268,10 @@ export default function ShoppingList() {
         </div>
       )}
 
-      {/* Toggle show checked */}
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="showChecked"
-          checked={showChecked}
-          onChange={(e) => setShowChecked(e.target.checked)}
-          className="rounded"
-        />
-        <label htmlFor="showChecked" className="text-sm text-gray-600 cursor-pointer">
-          Visa avklarade varor
-        </label>
-      </div>
-
       {/* Shopping items grouped by category */}
       <div className="space-y-4">
         {Object.entries(groupedItems).map(([category, categoryItems]) => {
-          const visibleItems = showChecked 
-            ? categoryItems 
-            : categoryItems.filter(item => !item.checked)
-          
-          if (visibleItems.length === 0) return null
+          if (categoryItems.length === 0) return null
 
           return (
             <div key={category} className="space-y-2">
@@ -246,11 +282,11 @@ export default function ShoppingList() {
                   color: categoryColors[category as keyof typeof categoryColors]
                 }}
               >
-                {category} ({visibleItems.length})
+                {category} ({categoryItems.length})
               </h3>
               
               <div className="space-y-2">
-                {visibleItems.map((item) => (
+                {categoryItems.map((item) => (
                   <div
                     key={item.id}
                     className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
@@ -300,8 +336,8 @@ export default function ShoppingList() {
 
       {items.length === 0 && (
         <div className="text-center py-12 text-gray-400">
-          <p className="text-lg">Din inköpslista är tom</p>
-          <p className="text-sm mt-2">Lägg till varor ovan</p>
+          <p className="text-lg">Your shopping list is empty</p>
+          <p className="text-sm mt-2">Add items above</p>
         </div>
       )}
     </div>
