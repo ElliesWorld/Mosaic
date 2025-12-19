@@ -1,46 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Mic, MicOff } from 'lucide-react'
+import { Plus, Mic, MicOff, Calendar } from 'lucide-react'
 import TaskItem from './taskItem'
 import { useVoiceRecognition } from '../Hooks/useVoiceRecognition'
-import type { Task } from '@types/index'
+import { useTasks } from '../tasksContext'
 
 export default function TodoList() {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Contact the Teacher about the report',
-      description: '',
-      priority: 'URGENT',
-      completed: false,
-      dueDate: new Date('2024-12-05'),
-      listType: 'TODO',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '2',
-      title: 'Call Dad',
-      description: '',
-      priority: 'MEDIUM',
-      completed: false,
-      listType: 'TODO',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '3',
-      title: 'Buy gift to Grandma on bday',
-      description: 'Birthday is on August 19th!',
-      priority: 'URGENT',
-      completed: false,
-      dueDate: new Date('2024-12-08'),
-      listType: 'TODO',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ])
+  const { tasks: allTasks, addTask, toggleTaskComplete, deleteTask } = useTasks()
+  
+  // Filter to show TODO and CALENDAR tasks
+  const tasks = allTasks.filter(task => task.listType === 'TODO' || task.listType === 'CALENDAR')
 
   const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [newTaskDueDate, setNewTaskDueDate] = useState('')
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const { isListening, transcript, startListening, stopListening, supported, resetTranscript, error } = useVoiceRecognition()
   const wasListeningRef = useRef(false)
   const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -51,35 +23,30 @@ export default function TodoList() {
     const taskTitle = title || newTaskTitle
     if (!taskTitle.trim()) return
 
-    const newTask: Task = {
-      id: Date.now().toString(),
+    console.log('➕ Adding:', taskTitle)
+    addTask({
       title: taskTitle,
       priority: 'NORMAL',
       completed: false,
+      dueDate: newTaskDueDate ? new Date(newTaskDueDate) : undefined,
       listType: 'TODO',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-
-    console.log('➕ Adding:', taskTitle)
-    setTasks(prev => [...prev, newTask])
+    })
     setNewTaskTitle('')
-  }, [newTaskTitle])
+    setNewTaskDueDate('')
+    setShowDatePicker(false)
+  }, [newTaskTitle, newTaskDueDate, addTask])
 
   // Delay showing "Listening..." message by 150ms
   useEffect(() => {
     if (isListening) {
-      // Clear any existing delay
       if (listeningDelayRef.current) {
         clearTimeout(listeningDelayRef.current)
       }
       
-      // Show "Listening..." after 150ms delay
       listeningDelayRef.current = setTimeout(() => {
         setShowListening(true)
       }, 150)
     } else {
-      // Hide immediately when stopped
       if (listeningDelayRef.current) {
         clearTimeout(listeningDelayRef.current)
       }
@@ -93,17 +60,15 @@ export default function TodoList() {
     }
   }, [isListening])
 
-  // Auto-stop after getting transcript (with delay for final result)
+  // Auto-stop after getting transcript
   useEffect(() => {
     if (isListening && transcript) {
       console.log('📝 Got transcript, will auto-stop in 0.5 seconds...')
       
-      // Clear existing timeout
       if (autoStopTimeoutRef.current) {
         clearTimeout(autoStopTimeoutRef.current)
       }
       
-      // Auto-stop after 0.5 seconds of no new speech
       autoStopTimeoutRef.current = setTimeout(() => {
         if (isListening) {
           console.log('⏹️ Auto-stopping...')
@@ -148,13 +113,11 @@ export default function TodoList() {
   }, [isListening, transcript, handleAddTask, resetTranscript])
 
   const handleToggleComplete = (id: string) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ))
+    toggleTaskComplete(id)
   }
 
   const handleDeleteTask = (id: string) => {
-    setTasks(tasks.filter(task => task.id !== id))
+    deleteTask(id)
   }
 
   return (
@@ -163,45 +126,80 @@ export default function TodoList() {
         <h2 className="text-xl font-bold" style={{ color: '#7EC8E3' }}>To do list</h2>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-          placeholder={showListening ? "Listening..." : "Add a new task..."}
-          className="flex-1 px-3 py-2 text-sm rounded-xl border border-blue-200/50 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF]/50 bg-white/70 backdrop-blur-sm"
-          disabled={isListening}
-        />
-        
-        {supported ? (
-          <button
-            onClick={startListening}
+      <div className="space-y-2">
+        {/* Task Title Input */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+            placeholder={showListening ? "Listening..." : "Add a new task..."}
+            className="flex-1 px-3 py-2 text-sm rounded-xl border border-blue-200/50 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF]/50 bg-white/70 backdrop-blur-sm"
             disabled={isListening}
+          />
+          
+          <button
+            onClick={() => setShowDatePicker(!showDatePicker)}
             className={`p-2 rounded-xl transition-all flex items-center justify-center ${
-              isListening 
-                ? 'bg-red-400 animate-pulse cursor-not-allowed' 
-                : 'bg-blue-400 hover:bg-blue-500'
+              showDatePicker || newTaskDueDate
+                ? 'bg-purple-400 text-white' 
+                : 'bg-white/70 text-gray-600 hover:bg-purple-100'
             }`}
-            title={isListening ? 'Recording...' : 'Start voice input'}
+            title="Add due date"
           >
-            {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
+            <Calendar className="w-4 h-4" />
           </button>
-        ) : (
-          <div className="p-2 rounded-xl bg-gray-300" title="Voice not supported">
-            <MicOff className="w-4 h-4 text-gray-500" />
+          
+          {supported && (
+            <button
+              onClick={startListening}
+              disabled={isListening}
+              className={`p-2 rounded-xl transition-all flex items-center justify-center ${
+                isListening 
+                  ? 'bg-red-400 animate-pulse cursor-not-allowed' 
+                  : 'bg-blue-400 hover:bg-blue-500'
+              }`}
+              title={isListening ? 'Recording...' : 'Start voice input'}
+            >
+              {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
+            </button>
+          )}
+          
+          <button
+            onClick={() => handleAddTask()}
+            className="px-4 py-2 text-sm rounded-xl transition-colors flex items-center gap-1.5 font-medium shadow-sm hover:shadow"
+            style={{ backgroundColor: '#A8E6CF' }}
+            disabled={isListening}
+          >
+            <Plus className="w-4 h-4" />
+            Add
+          </button>
+        </div>
+
+        {/* Date Picker (collapsible) */}
+        {showDatePicker && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-purple-50/70 backdrop-blur-sm rounded-xl">
+            <Calendar className="w-4 h-4 text-purple-600" />
+            <input
+              type="date"
+              value={newTaskDueDate}
+              onChange={(e) => setNewTaskDueDate(e.target.value)}
+              className="flex-1 px-2 py-1 text-sm rounded-lg border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
+            />
+            {newTaskDueDate && (
+              <button
+                onClick={() => {
+                  setNewTaskDueDate('')
+                  setShowDatePicker(false)
+                }}
+                className="text-xs text-purple-600 hover:text-purple-800"
+              >
+                Clear
+              </button>
+            )}
           </div>
         )}
-        
-        <button
-          onClick={() => handleAddTask()}
-          className="px-4 py-2 text-sm rounded-xl transition-colors flex items-center gap-1.5 font-medium shadow-sm hover:shadow"
-          style={{ backgroundColor: '#A8E6CF' }}
-          disabled={isListening}
-        >
-          <Plus className="w-4 h-4" />
-          Add
-        </button>
       </div>
 
       {showListening && (
