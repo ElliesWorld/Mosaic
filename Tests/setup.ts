@@ -14,3 +14,25 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 })
+
+// Mock Web Speech API
+Object.defineProperty(window, 'SpeechRecognition', {
+  writable: true,
+  value: jest.fn().mockImplementation(() => ({
+    start: jest.fn(),
+    stop: jest.fn(),
+    abort: jest.fn(),
+    continuous: false,
+    interimResults: false,
+    lang: 'en-US',
+    onstart: null,
+    onend: null,
+    onerror: null,
+    onresult: null,
+  })),
+})
+
+Object.defineProperty(window, 'webkitSpeechRecognition', {
+  writable: true,
+  value: window.SpeechRecognition,
+})
