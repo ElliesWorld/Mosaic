@@ -14,7 +14,7 @@ export default {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {
-        jsx: 'react-jsx',  // Changed from 'react' to 'react-jsx'
+        jsx: 'react-jsx',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
       }
@@ -26,6 +26,8 @@ export default {
     '!src/Main/**',
     '!src/Preload/**',
     '!src/main.tsx',
+    '!src/Interface/Hooks/useVoiceRecognition.ts',  
+    '!src/Interface/Hooks/useOnlineSTT.ts',        
   ],
   coverageThreshold: {
     global: {

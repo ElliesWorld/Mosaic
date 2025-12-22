@@ -138,4 +138,92 @@ describe('TodoList Component', () => {
       expect(dateInput).toBeTruthy()
     })
   })
+
+  // NEW TESTS BELOW
+
+  it('should not add empty task when clicking button', () => {
+    renderWithProvider(<TodoList />)
+    
+    const addButton = screen.getByRole('button', { name: /^Add$/i })
+    const initialTasks = screen.getAllByTestId(/task-/)
+    const initialCount = initialTasks.length
+    
+    fireEvent.click(addButton)
+    
+    const tasksAfter = screen.getAllByTestId(/task-/)
+    expect(tasksAfter.length).toBe(initialCount)
+  })
+
+  it('should not add task when pressing Enter with empty input', () => {
+    renderWithProvider(<TodoList />)
+    
+    const input = screen.getByPlaceholderText('Add a new task...')
+    const initialTasks = screen.getAllByTestId(/task-/)
+    const initialCount = initialTasks.length
+    
+    fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13 })
+    
+    const tasksAfter = screen.getAllByTestId(/task-/)
+    expect(tasksAfter.length).toBe(initialCount)
+  })
+
+  it('should hide date picker when clicking calendar button again', async () => {
+    renderWithProvider(<TodoList />)
+    
+    const calendarButton = screen.getByTitle('Add due date')
+    
+    // Show date picker
+    fireEvent.click(calendarButton)
+    let dateInput = document.querySelector('input[type="date"]')
+    expect(dateInput).toBeInTheDocument()
+    
+    // Hide date picker
+    fireEvent.click(calendarButton)
+    await waitFor(() => {
+      dateInput = document.querySelector('input[type="date"]')
+      expect(dateInput).not.toBeInTheDocument()
+    })
+  })
+
+  it('should add task with selected due date', async () => {
+    renderWithProvider(<TodoList />)
+    
+    const input = screen.getByPlaceholderText('Add a new task...')
+    const calendarButton = screen.getByTitle('Add due date')
+    const addButton = screen.getByRole('button', { name: /^Add$/i })
+    
+    // Open date picker and select date
+    fireEvent.click(calendarButton)
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement
+    fireEvent.change(dateInput, { target: { value: '2025-12-25' } })
+    
+    // Add task
+    fireEvent.change(input, { target: { value: 'Christmas task' } })
+    fireEvent.click(addButton)
+    
+    await waitFor(() => {
+      expect(screen.getByText('Christmas task')).toBeInTheDocument()
+    })
+  })
+
+  it('should render voice button when voice is supported', () => {
+    renderWithProvider(<TodoList />)
+    const voiceButton = screen.getByTitle('Start voice input')
+    expect(voiceButton).toBeInTheDocument()
+  })
+
+  it('should not add whitespace-only task', () => {
+    renderWithProvider(<TodoList />)
+    
+    const input = screen.getByPlaceholderText('Add a new task...')
+    const addButton = screen.getByRole('button', { name: /^Add$/i })
+    const initialTasks = screen.getAllByTestId(/task-/)
+    const initialCount = initialTasks.length
+    
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.click(addButton)
+    
+    const tasksAfter = screen.getAllByTestId(/task-/)
+    expect(tasksAfter.length).toBe(initialCount)
+  })
 })
