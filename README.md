@@ -1,5 +1,7 @@
 # Mosaic
 
+[![CI](https://github.com/ElliesWorld/Mosaic/actions/workflows/ci.yml/badge.svg)](https://github.com/ElliesWorld/Mosaic/actions/workflows/ci.yml)
+
 A productivity web application with voice input, task management, shopping lists, calendar, and a memory bank.
 
 ## Features
@@ -13,13 +15,35 @@ A productivity web application with voice input, task management, shopping lists
 
 ## Tech Stack
 
+### Frontend
 - React 18 with TypeScript
-- Express.js backend
-- PostgreSQL database with Prisma ORM
-- TailwindCSS for styling
-- Vite build tool
-- Jest for testing
-- Swagger for API documentation
+- Vite (build tool and dev server)
+- TailwindCSS (styling)
+- React Big Calendar (calendar component)
+- React DatePicker (date selection)
+- Lucide React (icons)
+
+### Backend
+- Node.js with Express.js
+- TypeScript
+- Prisma ORM (database client)
+- PostgreSQL (database)
+- Swagger/OpenAPI (API documentation)
+- Winston (logging)
+
+### Testing & Quality
+- Jest (unit testing framework)
+- ESLint (code linting)
+- TypeScript (type checking)
+- 70% test coverage
+
+### DevOps
+- GitHub Actions (CI/CD)
+- Docker (PostgreSQL container)
+- Git (version control)
+
+### Data Validation
+- Zod (schema validation)
 
 ## Prerequisites
 
