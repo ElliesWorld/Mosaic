@@ -9,10 +9,10 @@ export const taskController = {
     try {
       const { listType } = req.query
       
-      const tasks = await prisma.task.findMany({
-        where: listType ? { listType: listType as string } : undefined,
-        orderBy: { createdAt: 'desc' },
-      })
+const tasks = await prisma.task.findMany({
+  where: listType ? { listType: listType as 'TODO' | 'SHOPPING' | 'CALENDAR' } : undefined,
+  orderBy: { createdAt: 'desc' },
+})
       
       res.json(tasks)
     } catch (error) {

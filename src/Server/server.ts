@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   logger.debug('Health check endpoint called')
   res.json({ status: 'ok', message: 'Mosaic API is running' })
 })
@@ -33,13 +33,13 @@ app.get('/health', (req, res) => {
 app.use('/api/tasks', taskRoutes)
 
 // 404 handler
-app.use((req, res) => {
-  logger.warn(`404 Not Found: ${req.method} ${req.path}`)
+app.use((_req, res) => {
+  logger.warn(`404 Not Found: ${_req.method} ${_req.path}`)
   res.status(404).json({ error: 'Route not found' })
 })
 
 // Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error('Error occurred:', {
     error: err.message,
     stack: err.stack,
