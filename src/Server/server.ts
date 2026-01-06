@@ -2,8 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import swaggerUi from 'swagger-ui-express'
-import { swaggerSpec } from './swagger/config'
-import taskRoutes from './routes/taskRoutes'
+import { swaggerSpec } from './swagger/config.js'      
+import taskRoutes from './routes/taskRoutes.js'        
+import { logger } from './utils/logger.js'           
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -13,11 +14,18 @@ app.use(helmet())
 app.use(cors())
 app.use(express.json())
 
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`)
+  next()
+})
+
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
+  logger.debug('Health check endpoint called')
   res.json({ status: 'ok', message: 'Mosaic API is running' })
 })
 
@@ -25,19 +33,25 @@ app.get('/health', (req, res) => {
 app.use('/api/tasks', taskRoutes)
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
+  logger.warn(`404 Not Found: ${_req.method} ${_req.path}`)
   res.status(404).json({ error: 'Route not found' })
 })
 
 // Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack)
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error('Error occurred:', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  })
   res.status(500).json({ error: 'Something went wrong!' })
 })
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-  console.log(`📚 Swagger docs available at http://localhost:${PORT}/api-docs`)
+  logger.info(`🚀 Server running on http://localhost:${PORT}`)
+  logger.info(`📚 Swagger docs available at http://localhost:${PORT}/api-docs`)
 })
 
 export default app

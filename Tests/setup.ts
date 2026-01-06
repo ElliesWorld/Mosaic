@@ -36,3 +36,15 @@ Object.defineProperty(window, 'webkitSpeechRecognition', {
   writable: true,
   value: window.SpeechRecognition,
 })
+
+// Mock the taskService module to avoid import.meta issues
+jest.mock('../src/services/taskService', () => ({
+  taskAPI: {
+    getAllTasks: jest.fn(),
+    getTaskById: jest.fn(),
+    createTask: jest.fn(),
+    updateTask: jest.fn(),
+    deleteTask: jest.fn(),
+    toggleTaskComplete: jest.fn(),
+  },
+}))

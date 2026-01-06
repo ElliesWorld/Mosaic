@@ -1,0 +1,6 @@
+{"level":"info","message":"🚀 Server running on http://localhost:3001","service":"mosaic-api","timestamp":"2026-01-05 14:41:03"}
+{"level":"info","message":"📚 Swagger docs available at http://localhost:3001/api-docs","service":"mosaic-api","timestamp":"2026-01-05 14:41:03"}
+{"level":"info","message":"🚀 Server running on http://localhost:3001","service":"mosaic-api","timestamp":"2026-01-05 14:41:34"}
+{"level":"info","message":"📚 Swagger docs available at http://localhost:3001/api-docs","service":"mosaic-api","timestamp":"2026-01-05 14:41:34"}
+{"level":"info","message":"GET /health","service":"mosaic-api","timestamp":"2026-01-05 14:42:01"}
+{"level":"debug","message":"Health check endpoint called","service":"mosaic-api","timestamp":"2026-01-05 14:42:01"}
