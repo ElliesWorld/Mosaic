@@ -37,33 +37,14 @@ Object.defineProperty(window, 'webkitSpeechRecognition', {
   value: window.SpeechRecognition,
 })
 
-// Mock taskService API calls to return resolved promises
+// Mock the taskService module to avoid import.meta issues
 jest.mock('../src/services/taskService', () => ({
   taskAPI: {
-    getAllTasks: jest.fn().mockResolvedValue([]),
-    getTaskById: jest.fn().mockResolvedValue({}),
-    createTask: jest.fn().mockImplementation((task) => 
-      Promise.resolve({ 
-        ...task, 
-        id: Date.now().toString(), 
-        createdAt: new Date(), 
-        updatedAt: new Date() 
-      })
-    ),
-    updateTask: jest.fn().mockImplementation((id, updates) => 
-      Promise.resolve({ 
-        id, 
-        ...updates, 
-        updatedAt: new Date() 
-      })
-    ),
-    deleteTask: jest.fn().mockResolvedValue(undefined),
-    toggleTaskComplete: jest.fn().mockImplementation((id) => 
-      Promise.resolve({ 
-        id, 
-        completed: true, 
-        updatedAt: new Date() 
-      })
-    ),
+    getAllTasks: jest.fn(),
+    getTaskById: jest.fn(),
+    createTask: jest.fn(),
+    updateTask: jest.fn(),
+    deleteTask: jest.fn(),
+    toggleTaskComplete: jest.fn(),
   },
 }))
