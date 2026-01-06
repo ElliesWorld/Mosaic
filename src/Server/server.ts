@@ -2,9 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import swaggerUi from 'swagger-ui-express'
-import { swaggerSpec } from './swagger/config'
-import taskRoutes from './routes/taskRoutes'
-import { logger } from './utils/logger'
+import { swaggerSpec } from './swagger/config.js'      
+import taskRoutes from './routes/taskRoutes.js'        
+import { logger } from './utils/logger.js'           
 
 const app = express()
 const PORT = process.env.PORT || 3001
